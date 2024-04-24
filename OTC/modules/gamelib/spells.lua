@@ -15,7 +15,7 @@ SpelllistSettings = {
                       'Cure Poison Rune', 'Curse', 'Death Strike', 'Desintegrate', 'Destroy Field', 'Divine Caldera',
                       'Divine Healing', 'Divine Missile', 'Electrify', 'Enchant Party', 'Enchant Spear',
                       'Enchant Staff', 'Energy Beam', 'Energy Field', 'Energy Strike', 'Energy Wall', 'Energy Wave',
-                      'Energybomb', 'Envenom', 'Eternal Winter', 'Ethereal Spear', 'Explosion', 'Fierce Berserk',
+                      'Energybomb', 'Envenom', 'Eternal Winter', 'Eternalest Winter', 'Ethereal Spear', 'Explosion', 'Fierce Berserk',
                       'Find Person', 'Fire Field', 'Fire Wall', 'Fire Wave', 'Fireball', 'Firebomb', 'Flame Strike',
                       'Food', 'Front Sweep', 'Great Energy Beam', 'Great Fireball', 'Great Light', 'Groundshaker',
                       'Haste', 'Heal Friend', 'Heal Party', 'Heavy Magic Missile', 'Hells Core', 'Holy Flash',
@@ -557,6 +557,22 @@ SpellInfo = {
             type = 'Instant',
             icon = 'eternalwinter',
             mana = 1050,
+            level = 60,
+            soul = 0,
+            group = {
+                [1] = 4000
+            },
+            parameter = false,
+            vocations = {2, 6}
+        },
+        ['Eternalest Winter'] = {
+            id = 201,
+            words = 'frigo',
+            exhaustion = 4000,
+            premium = true,
+            type = 'Instant',
+            icon = 'eternalwinter',
+            mana = 1,
             level = 60,
             soul = 0,
             group = {

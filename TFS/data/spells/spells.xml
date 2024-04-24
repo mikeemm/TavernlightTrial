@@ -69,6 +69,11 @@
 		<vocation name="Druid" />
 		<vocation name="Elder Druid" />
 	</instant>
+	<!--Instead of replacing Eternal Winter, we create a new one that can be used alongside it-->
+	<instant group="attack" spellid="201" name="Eternalest Winter" words="frigo" level="60" mana="1" premium="1" selftarget="1" cooldown="4000" groupcooldown="4000" needlearn="0" script="attack/eternalest_winter.lua">
+		<vocation name="Druid" />
+		<vocation name="Elder Druid" />
+	</instant>
 	<instant group="attack" spellid="111" name="Ethereal Spear" words="exori con" level="23" mana="25" premium="1" range="7" needtarget="1" cooldown="2000" groupcooldown="2000" blockwalls="1" needlearn="0" script="attack/ethereal_spear.lua">
 		<vocation name="Paladin" />
 		<vocation name="Royal Paladin" />
