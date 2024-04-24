@@ -1,0 +1,12 @@
+MainWindow
+  !text: tr('Simple Minigame')
+  size: 620 480
+
+  @onEnter: modules.client_simpleminigame.Minigame.destroy()
+  @onEscape: modules.client_simpleminigame.Minigame.destroy()
+
+  Button
+    id: jumpbutton
+    !text: tr('Jump!')
+    width: 64
+    @onClick: modules.client_simpleminigame.jump()

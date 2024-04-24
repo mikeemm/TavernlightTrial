@@ -1,0 +1,9 @@
+Module
+  name: client_simpleminigame
+  description: Display a small and simple clicking minigame
+  author: mikeemm
+  website: 
+  sandboxed: true
+  scripts: [ simpleminigame.lua ]
+  @onLoad: init()
+  @onUnload: terminate()
