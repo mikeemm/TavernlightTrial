@@ -100,6 +100,22 @@ void Creature::draw(const Point& dest, uint32_t flags, LightView* lightView)
     }
 }
 
+void Creature::drawOutfitColor(Point dest, int yPattern, int animationPhase, bool isMarked, auto datType)
+{
+    // Here we blend the color of each body part into the already drawn character by multiplication, essentially
+    // filling the previously drawn white-and-black sprite with color. This code already existed within the 'internalDraw' method,
+    // but since we are going to need to use it multiple times, we might as well put it in its own function.
+
+    if (m_drawOutfitColor && !isMarked && getLayers() > 1) {
+        g_drawPool.setCompositionMode(CompositionMode::MULTIPLY);
+        datType->draw(dest, SpriteMaskYellow, m_numPatternX, yPattern, m_numPatternZ, animationPhase, Otc::DrawThingsAndLights, m_outfit.getHeadColor());
+        datType->draw(dest, SpriteMaskRed, m_numPatternX, yPattern, m_numPatternZ, animationPhase, Otc::DrawThingsAndLights, m_outfit.getBodyColor());
+        datType->draw(dest, SpriteMaskGreen, m_numPatternX, yPattern, m_numPatternZ, animationPhase, Otc::DrawThingsAndLights, m_outfit.getLegsColor());
+        datType->draw(dest, SpriteMaskBlue, m_numPatternX, yPattern, m_numPatternZ, animationPhase, Otc::DrawThingsAndLights, m_outfit.getFeetColor());
+        g_drawPool.resetCompositionMode();
+    }
+}
+
 void Creature::internalDraw(Point dest, bool isMarked, const Color& color, LightView* lightView)
 {
     if (isMarked)
@@ -137,15 +153,109 @@ void Creature::internalDraw(Point dest, bool isMarked, const Color& color, Light
                 if (yPattern > 0 && !(m_outfit.getAddons() & (1 << (yPattern - 1))))
                     continue;
 
-                datType->draw(dest, 0, m_numPatternX, yPattern, m_numPatternZ, animationPhase, Otc::DrawThingsAndLights, color);
+                // We want to add effects to our character's movement. For this to be visible for other people in our server,
+                // we'd need to also modify our server, perhaps triggering it with a spell or server command. But for the sake
+                // of simplicity, since the focus has been set on replicating the graphics from the video, we'll treat
+                // it as our own little rendering hack, just visible to us in our personal client at all times.
+                //
+                // We'll stick to only applying these effects to our own player character.
 
-                if (m_drawOutfitColor && !isMarked && getLayers() > 1) {
-                    g_drawPool.setCompositionMode(CompositionMode::MULTIPLY);
-                    datType->draw(dest, SpriteMaskYellow, m_numPatternX, yPattern, m_numPatternZ, animationPhase, Otc::DrawThingsAndLights, m_outfit.getHeadColor());
-                    datType->draw(dest, SpriteMaskRed, m_numPatternX, yPattern, m_numPatternZ, animationPhase, Otc::DrawThingsAndLights, m_outfit.getBodyColor());
-                    datType->draw(dest, SpriteMaskGreen, m_numPatternX, yPattern, m_numPatternZ, animationPhase, Otc::DrawThingsAndLights, m_outfit.getLegsColor());
-                    datType->draw(dest, SpriteMaskBlue, m_numPatternX, yPattern, m_numPatternZ, animationPhase, Otc::DrawThingsAndLights, m_outfit.getFeetColor());
-                    g_drawPool.resetCompositionMode();
+                if (isLocalPlayer()) {
+
+                    // We also only want the effect to take place while the character is walking, when standing still they will look normal.
+
+                    if (m_walking) {
+
+                        // First off, the trail ghosts.
+                        // 
+                        // We're going to set up an arbitrary number of pixels that will separate these ghosts.
+                        // We could put this variable as a member of Creature, but since it will not be modified anywhere else,
+                        // we'll hardcode it here. We'll do this for a few more values later that we do not care about manipulating.
+
+                        int trailDistance = 18;
+                        Point trailDest = dest;
+                        Point trailOffset = Point();
+
+                        // m_numPatternX contains the direction that the player is facing, encoded in integers to fetch the corresponding sprites later on.
+                        // 0 is North, 1 is East, 2 is South, and 3 is West. So we set the actual trail offset in XY coordinates depending on this value.
+                        // Enabling diagonals on our client will make them look very weird without further modifications, so we'll keep movement to straight lines.
+
+                        if (m_numPatternX == 0) {
+                            trailOffset.y += trailDistance;
+                        } else if (m_numPatternX == 1) {
+                            trailOffset.x -= trailDistance;
+                        } else if (m_numPatternX == 2) {
+                            trailOffset.y -= trailDistance;
+                        } else {
+                            trailOffset.x += trailDistance;
+                        }
+
+                        // We'll draw the player character 4 different times, each time further separated from the real player's location by the offset distance,
+                        // and each one with less and less opacity.
+
+                        for (int i = 1; i <= 4; i++) {
+
+                            // If we just immediately created all 4 ghosts behind us, we would be having a trail longer than the distance we'd covered when moving.
+                            // So we've created a new member variable that will try to record the number of pixels walked in a straight line, and adjust the
+                            // number of ghosts depending on the distance.
+                            //
+                            // NOTE: due to the stuttering that many otclient versions seem to have when walking, the trail is often reset when the character has
+                            // not actually stopped moving. This is especially noticeable when walking with WASD/arrow keys, less so when clicking with the mouse.
+                            // If the client installed and protocol used do not have these issues, as I am aware some do not, the effect should display fine.
+                            // I have unfortunately not had time to test more versions and figure out a combination that worked with no movement stuttering.
+                            // Perhaps a different approach to detecting when the player is moving or not would have been better, but nothing I tried seemed to help.
+                            // Maybe speed? Or reading the keyboard state, maybe that could work with a bit more time. Also this whole ghost trail thing wouldn't
+                            // need to be done if the player moved at such a fast speed that you couldn't even notice the trail starting longer than it should.
+                            // Perhaps I should've focused on trying to make the character lightning fast instead.
+                            // 
+                            // I also initially built this in Edubart's client, but not only was it even more jittery, but some sort of effect made tiles draw over
+                            // the ghosts created to the right and below the player character. I have seen the same pattern in this version, but it just seems to
+                            // slightly darken the affected tiles, like a looming cloud. I'm not sure what that is supposed to be, but it seems to have been bugged
+                            // in the original client, so together with the Q5 tornadoes behaving differently in that version, I decided to get a newer client.
+
+                            if (m_walkedPixelsInStraightLine >= trailDistance * i) {
+                                trailDest += trailOffset;
+                                g_drawPool.setOpacity(1 - 0.2 * i);
+
+                                // The draw call is almost the same as the original but we draw in the Point we designated for every specific ghost,
+                                // and we make sure the animationPhase is 0 (Idle). We also put the outfit draw calls in a little method, so we can call
+                                // it repeatedly more easily
+
+                                datType->draw(trailDest, 0, m_numPatternX, yPattern, m_numPatternZ, 0, Otc::DrawThingsAndLights, color);
+                                drawOutfitColor(trailDest, yPattern, 0, isMarked, datType);
+                            }
+                        }
+                        g_drawPool.setOpacity(1);
+
+                        // We've drawn the trail, now we want to draw the real character. But first, we want to draw a red aura around it.
+                        // To do this, we'll first draw the character slightly bigger, all in red. By passing a sprite mask referencing a part of
+                        // the character's body we'll be able to specify that we want to draw that particular part of the body in the exact
+                        // same shade of red, much like how usually the player character's outfit is white and it needs to be filled with color
+                        // using calls like these.
+
+                        g_drawPool.setScaleFactor(1.2);
+                        datType->draw(dest, SpriteMaskYellow, m_numPatternX, yPattern, m_numPatternZ, 0, Otc::DrawThingsAndLights, Color("red"));  // We draw the head
+                        datType->draw(dest, SpriteMaskRed, m_numPatternX, yPattern, m_numPatternZ, 0, Otc::DrawThingsAndLights, Color("red"));  // Body
+                        datType->draw(dest, SpriteMaskGreen, m_numPatternX, yPattern, m_numPatternZ, 0, Otc::DrawThingsAndLights, Color("red"));  // And legs. The feet look weird when scaled.
+                        g_drawPool.setScaleFactor(1);
+
+                        // And then finally we draw the actual character on top, making it look like it is shining red.
+
+                        datType->draw(dest, 0, m_numPatternX, yPattern, m_numPatternZ, 0, Otc::DrawThingsAndLights, color);
+                        drawOutfitColor(dest, yPattern, 0, isMarked, datType);
+                    } else {
+
+                        // If our character is not walking we don't want to draw special effects on it, but we still want it to remain idle.
+
+                        datType->draw(dest, 0, m_numPatternX, yPattern, m_numPatternZ, 0, Otc::DrawThingsAndLights, color);
+                        drawOutfitColor(dest, yPattern, 0, isMarked, datType);
+                    }
+                } else {
+
+                    // If it is not our character, then it is just drawn normally.
+
+                    datType->draw(dest, 0, m_numPatternX, yPattern, m_numPatternZ, animationPhase, Otc::DrawThingsAndLights, color);
+                    drawOutfitColor(dest, yPattern, animationPhase, isMarked, datType);
                 }
             }
 
@@ -329,6 +439,11 @@ void Creature::walk(const Position& oldPos, const Position& newPos)
     // set current walking direction
     setDirection(m_lastStepDirection);
 
+    // If we were stopped before, we begin counting the pixels we walked in a straight line anew.
+    // Due to client protocol issues, this often triggers incorrectly and resets our record when the player is still moving.
+    if (!m_walking) {
+        m_walkedPixelsInStraightLine = 0;
+    }
     // starts counting walk
     m_walking = true;
     m_walkTimer.restart();
@@ -595,8 +710,11 @@ void Creature::updateWalk(const bool isPreWalking)
 
     const int totalPixelsWalked = std::min<int>(m_walkTimer.ticksElapsed() / walkTicksPerPixel, g_gameConfig.getSpriteSize());
 
+    uint8_t oldWalkedPixels = m_walkedPixels;
     // needed for paralyze effect
     m_walkedPixels = std::max<int>(m_walkedPixels, totalPixelsWalked);
+    // We cannot rely on m_walkedPixels, as it resets on reaching a new block, but we can rely on the pixels it added to itself.
+    m_walkedPixelsInStraightLine += m_walkedPixels - oldWalkedPixels;
 
     updateWalkAnimation();
     updateWalkOffset(m_walkedPixels);
@@ -677,12 +795,17 @@ void Creature::setDirection(Otc::Direction direction)
     m_direction = direction;
 
     // xPattern => creature direction
+    int oldPatternX = m_numPatternX;
     if (direction == Otc::NorthEast || direction == Otc::SouthEast)
         m_numPatternX = Otc::East;
     else if (direction == Otc::NorthWest || direction == Otc::SouthWest)
         m_numPatternX = Otc::West;
     else
         m_numPatternX = direction;
+    if (oldPatternX != m_numPatternX) {
+        // If we are looking at a new direction, it means we've turned around and need to reset our straight line counter.
+        m_walkedPixelsInStraightLine = 0;
+    }
 
     setAttachedEffectDirection(static_cast<Otc::Direction>(m_numPatternX));
 }
